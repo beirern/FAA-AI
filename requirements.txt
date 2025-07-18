@@ -1,0 +1,8 @@
+notebook
+llama-index
+pypdf
+llama-index-llms-ollama
+llama-index-embeddings-ollama
+pandas
+pypdf
+matplotlib

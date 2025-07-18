@@ -1,0 +1,6 @@
+env/
+.mypy*
+.ipynb_checkpoints/
+__pycache__/
+*.png
+*_storage/
