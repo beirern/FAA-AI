@@ -1,27 +1,39 @@
 import os
+import logging
+import sys
+import json
 from llama_index.core import VectorStoreIndex, DocumentSummaryIndex, SimpleDirectoryReader, get_response_synthesizer, Settings, StorageContext, load_index_from_storage, Document
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.llms.ollama import Ollama
+from llama_index.llms.openai import OpenAI
 from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
 from llama_index.core.tools import QueryEngineTool
 from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.core.query_engine import RouterQueryEngine
 from llama_index.core.selectors import LLMSingleSelector
 from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.prompts import PromptTemplate
 from llama_index.core.response_synthesizers import TreeSummarize
+from dotenv import load_dotenv
 
+load_dotenv()
 
-VECTOR_INDEX_STORAGE_DIR = "storage"
-FILES_DIR = "files"
-NODE_CHUNK_SIZE = 512
-NODE_CHUNK_OVERLAP = 20
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG) # Or logging.INFO
+# logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+
+VECTOR_INDEX_STORAGE_DIR = "./app/storage"
+FILES_DIR = "./app/files"
+NODE_CHUNK_SIZE = 2096
+NODE_CHUNK_OVERLAP = 800
 
 def llm_settings():
     """Function to set up LLM settings."""
-    Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:v1.5")
-    Settings.llm = Ollama(model="mistral:7b", temperature=0.2, seed=334, request_timeout=90.0)
+    # Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:v1.5")
+    # Settings.llm = Ollama(model="mistral:7b", temperature=0.2, seed=334, request_timeout=90.0)
+    Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-large")
+    Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0.2, seed=334, request_timeout=90.0)
     # Uncomment the line below to use a different model
     # Settings.llm = Ollama(model="deepseek-r1:7b", request_timeout=90.0)
 
@@ -81,7 +93,7 @@ def get_filtered_query_engine(index, filters=None):
     query_engine = RetrieverQueryEngine(
         retriever=retriever,
         response_synthesizer=get_response_synthesizer(),
-        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.7)],
+        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.5)],
     )
     return query_engine
 
@@ -104,7 +116,8 @@ def print_response(response):
         print(f"Content (snippet): {node.node.text[:200]}...")  # Print first 200 chars
         print("-" * 20)
 
-if __name__ == "__main__":
+def lambda_handler(event, context):
+    """Main function to run the script."""
     llm_settings()
 
     index = None
@@ -231,11 +244,15 @@ if __name__ == "__main__":
         "You are an FAA exam preparation assistant. Generate one multiple-choice question with four possible answers about the engine of a Cessna 162 based on the POH of the 162. The question should test a key concept from the text. Clearly indicate the correct answer."
     ]
 
+    full_response = ""
+
     for i, query in enumerate(queries):
         print(f"\n--- Query {i+1}: {query} ---")
         response = router_query_engine.query(query)
         print(response)
         print("\nSource Document(s) and Page Number(s):")
+
+        full_response += f"\nQuery {i+1}: {query}\nResponse: {response.response}\nSources:\n"
         
         # Iterate through the source_nodes to get file name and page label
         # Each node in response.source_nodes is a NodeWithScore object
@@ -248,5 +265,13 @@ if __name__ == "__main__":
             page_label = node.metadata.get('page_label', 'N/A') # 'page_label' is the common key for page number
             
             print(f"- File: {file_name}, Page: {page_label}")
+            full_response += f"- File: {file_name}, Page: {page_label}\n"
             # Optionally, you can print a snippet of the content to verify
             # print(f"  Content Snippet: {node.get_content()[:150]}...")
+    return json.dumps({
+        'statusCode': 200,
+        'body': full_response
+    })
+
+if __name__ == "__main__":
+    lambda_handler(None, None)

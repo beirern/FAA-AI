@@ -6,3 +6,5 @@ llama-index-embeddings-ollama
 pandas
 pypdf
 matplotlib
+spacy
+python-dotenv
