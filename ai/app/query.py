@@ -2,9 +2,16 @@ import os
 import logging
 import sys
 import json
+import chromadb
+from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 from llama_index.core import VectorStoreIndex, DocumentSummaryIndex, SimpleDirectoryReader, get_response_synthesizer, Settings, StorageContext, load_index_from_storage, Document
+from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.core.storage.index_store import SimpleIndexStore
+from llama_index.core.vector_stores import SimpleVectorStore
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.schema import TextNode
+from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.llms.ollama import Ollama
 from llama_index.llms.openai import OpenAI
 from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
@@ -23,62 +30,31 @@ load_dotenv()
 # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG) # Or logging.INFO
 # logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-VECTOR_INDEX_STORAGE_DIR = "./app/storage"
+VECTOR_INDEX_STORAGE_DIR = "./app/storage_local"
 FILES_DIR = "./app/files"
-NODE_CHUNK_SIZE = 2096
-NODE_CHUNK_OVERLAP = 800
+NODE_CHUNK_SIZE = 512
+NODE_CHUNK_OVERLAP = 100
+EMBED_MODEL = OllamaEmbedding(url="http://localhost:11434/api/embeddings", model_name="nomic-embed-text:v1.5") # Default embedding model
+LLM_MODEL = Ollama(model="mistral:7b", temperature=0.2, seed=334, request_timeout=90.0) # Default LLM model
+# EMBED_MODEL = OpenAIEmbedding(model="text-embedding-3-small") # Default embedding model
+# LLM_MODEL = OpenAI(model="gpt-4o-mini", temperature=0.2, seed=334, request_timeout=90.0) # Default LLM model
 
 def llm_settings():
     """Function to set up LLM settings."""
-    # Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:v1.5")
-    # Settings.llm = Ollama(model="mistral:7b", temperature=0.2, seed=334, request_timeout=90.0)
-    Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-large")
-    Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0.2, seed=334, request_timeout=90.0)
+    Settings.embed_model = EMBED_MODEL
+    Settings.llm = LLM_MODEL
+
+    # Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-large")
+    # Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0.2, seed=334, request_timeout=90.0)
     # Uncomment the line below to use a different model
     # Settings.llm = Ollama(model="deepseek-r1:7b", request_timeout=90.0)
 
-def load_documents_with_metadata(directory_path):
-    reader = SimpleDirectoryReader(directory_path, recursive=True)
-    loaded_docs = reader.load_data()
-    
-    docs_with_metadata = []
-    for doc in loaded_docs:
-        file_name = os.path.basename(doc.metadata.get('file_path', ''))
-
-        # Extract aircraft model from filename (e.g., "poh_162_1.pdf" -> "162")
-        aircraft_model = None
-        document_type = None
-        if "poh_" in file_name:
-            aircraft_model = "Cessna 162"
-            document_type = "Pilot Operating Handbook"
-        elif "phak" in file_name:
-            document_type = "Pilot Handbook of Aeronautical Knowledge"
-        elif "acs" in file_name:
-            document_type = "Airman Certification Standards"
-        elif "afh" in file_name:
-            document_type = "Airplane Flying Handbook"
-
-        # Add metadata to the document
-        new_metadata = doc.metadata.copy()
-        if aircraft_model:
-            new_metadata['aircraft_model'] = aircraft_model
-
-        new_metadata['document_type'] = document_type
-        
-        docs_with_metadata.append(Document(text=doc.text, metadata=new_metadata))
-
-    print(f"Loaded {len(docs_with_metadata)} documents with metadata.")
-    assert len(docs_with_metadata) > 0, "No documents loaded with metadata."
-
-    print("Sample metadata:", docs_with_metadata[0].metadata)
-    return docs_with_metadata
-
-def load_index(vector_index_storage_dir: str):
+def load_index(chroma_collection):
     """Function to load an index from the specified directory."""
-        
-    storage_context = StorageContext.from_defaults(persist_dir=vector_index_storage_dir)
-    index = load_index_from_storage(storage_context)
-    print(f"Loaded index from {vector_index_storage_dir}.")
+    
+    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    index = VectorStoreIndex.from_vector_store(vector_store=vector_store, embed_model=EMBED_MODEL)
+    print(f"Loaded indeces from {VECTOR_INDEX_STORAGE_DIR}")
 
     return index
 
@@ -87,14 +63,15 @@ def get_filtered_query_engine(index, filters=None):
     # This retriever will apply filters before fetching nodes
     retriever = index.as_retriever(
         similarity_top_k=5, # You can adjust top_k
-        filters=filters # Pass the filters here
+        filters=filters, # Pass the filters here
     )
 
     query_engine = RetrieverQueryEngine(
         retriever=retriever,
         response_synthesizer=get_response_synthesizer(),
-        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.5)],
+        # node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.5)],
     )
+
     return query_engine
 
 def query_llm(query: str, query_engine) -> str:
@@ -116,21 +93,18 @@ def print_response(response):
         print(f"Content (snippet): {node.node.text[:200]}...")  # Print first 200 chars
         print("-" * 20)
 
-def lambda_handler(event, context):
+def full_query(query):
     """Main function to run the script."""
     llm_settings()
+    
+    chroma_client = chromadb.PersistentClient(VECTOR_INDEX_STORAGE_DIR)
+    collection_name = "faa_documents"
+    chroma_collection = chroma_client.get_collection(collection_name, embedding_function=OllamaEmbeddingFunction(model_name="nomic-embed-text:v1.5"))
 
-    index = None
-    if os.path.exists(VECTOR_INDEX_STORAGE_DIR):
-        index = load_index(VECTOR_INDEX_STORAGE_DIR)
-    else:
-        documents = load_documents_with_metadata(FILES_DIR)
-        node_parser = SentenceSplitter(chunk_size=NODE_CHUNK_SIZE, chunk_overlap=NODE_CHUNK_OVERLAP)
-        nodes = node_parser.get_nodes_from_documents(documents)
-        index = VectorStoreIndex(nodes)
-        index.storage_context.persist(VECTOR_INDEX_STORAGE_DIR)
-        print("\nVectorStoreIndex created for all documents.")
-
+    index = load_index(chroma_collection)
+    print("\nVectorStoreIndex loaded.")
+    print(f"\nVerifying data directly in ChromaDB collection '{collection_name}'...")
+    print(f"Number of items in ChromaDB collection: {chroma_collection.count()}")
 
     # --- Custom QA Prompt Template ---
     # This is the prompt that tells the LLM how to answer based on the context.
@@ -224,54 +198,11 @@ def lambda_handler(event, context):
             acs_qe_tool,
             general_qe_tool, # Include a general tool as a fallback
         ],
-        summarizer=TreeSummarize(verbose=True, summary_template=qa_prompt),
+        summarizer=TreeSummarize(verbose=True, summary_template=qa_prompt.format()),
         verbose=True # Set to True to see which tool the router selects
     )
 
     print("\nRouterQueryEngine configured.")
 
-    ### --- Step 4: Querying with Chain Reasoning ---
-
-    print("\n--- Querying Examples ---")
-
-    queries = [
-        "What kind of engine does the Cessna 162 use?",
-        "Describe the electrical system of the Cessna 172.",
-        "What are the rules for VFR flight?",
-        "According to the Airman Certification Standards for the Private Pilots license what skills when maneuvering during slow flight do I need to exhibit and what are their codes?",
-        "Summarize Chapter 1 Introduction to Flying for me from the PHAK.",
-        "According to the AFH what is the protocol for Turbulent Air Approach and Landing?",
-        "You are an FAA exam preparation assistant. Generate one multiple-choice question with four possible answers about the engine of a Cessna 162 based on the POH of the 162. The question should test a key concept from the text. Clearly indicate the correct answer."
-    ]
-
-    full_response = ""
-
-    for i, query in enumerate(queries):
-        print(f"\n--- Query {i+1}: {query} ---")
-        response = router_query_engine.query(query)
-        print(response)
-        print("\nSource Document(s) and Page Number(s):")
-
-        full_response += f"\nQuery {i+1}: {query}\nResponse: {response.response}\nSources:\n"
-        
-        # Iterate through the source_nodes to get file name and page label
-        # Each node in response.source_nodes is a NodeWithScore object
-        for node_with_score in response.source_nodes:
-            # Access the underlying TextNode (or other Node type)
-            node = node_with_score.node
-            
-            # Get metadata from the node
-            file_name = node.metadata.get('file_name', 'N/A')
-            page_label = node.metadata.get('page_label', 'N/A') # 'page_label' is the common key for page number
-            
-            print(f"- File: {file_name}, Page: {page_label}")
-            full_response += f"- File: {file_name}, Page: {page_label}\n"
-            # Optionally, you can print a snippet of the content to verify
-            # print(f"  Content Snippet: {node.get_content()[:150]}...")
-    return json.dumps({
-        'statusCode': 200,
-        'body': full_response
-    })
-
-if __name__ == "__main__":
-    lambda_handler(None, None)
+    response = router_query_engine.query(query)
+    return response
