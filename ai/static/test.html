@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>FastAPI Form</title>
+</head>
+
+<body>
+  <h1>Enter Something</h1>
+  <form method="post">
+    <input type="text" name="user_input" placeholder="Type here..." required>
+    <button type="submit">Submit</button>
+  </form>
+
+  {% if submitted_data %}
+  <h2>You submitted: {{ submitted_data }}</h2>
+  {% endif %}
+</body>
+
+</html>

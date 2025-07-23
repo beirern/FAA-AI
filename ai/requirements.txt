@@ -10,3 +10,4 @@ spacy
 python-dotenv
 llama-index-vector-stores-chroma
 chromadb
+fastapi[standard]
