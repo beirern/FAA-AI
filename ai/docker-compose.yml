@@ -1,0 +1,32 @@
+version: "3.9"
+
+networks:
+  net:
+    driver: bridge
+services:
+  app:
+    build: .
+    ports:
+      - 5000:5000
+    environment:
+      - APP_ENV=production
+      - CHROMA_PORT=8000
+    depends_on:
+      - chromadb
+    networks:
+      - net
+    # Adjust the command below if your app entrypoint is different
+    command: ./app/entrypoint.sh
+
+  chromadb:
+    image: chromadb/chroma:1.0.15
+    volumes:
+      - ./chromadb:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma # this is the default path, change it as needed
+      - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-TRUE}
+    ports:
+      - 8000:8000
+    networks:
+      - net
