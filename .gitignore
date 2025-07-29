@@ -7,3 +7,4 @@ __pycache__/
 storage/
 .vscode/
 .env
+chroma_langchain_db/

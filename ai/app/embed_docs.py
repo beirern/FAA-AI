@@ -1,105 +1,83 @@
-import os
-import chromadb
-import chromadb.errors
+from langchain_chroma import Chroma
 
-from llama_index.core import SimpleDirectoryReader, Settings, Document
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.llms.ollama import Ollama
-from llama_index.llms.openai import OpenAI
-from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.embeddings.openai import OpenAIEmbedding
-from dotenv import load_dotenv
-from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
+from langchain_ollama import ChatOllama
+from langchain_ollama import OllamaEmbeddings
 
-load_dotenv()
+from langchain_core.documents import Document
 
-# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG) # Or logging.INFO
-# logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+from langchain_community.document_loaders import FileSystemBlobLoader
+from langchain_community.document_loaders.generic import GenericLoader
+from langchain_community.document_loaders.parsers import PyMuPDFParser
+from langchain_community.document_loaders.parsers import LLMImageBlobParser
 
-VECTOR_INDEX_STORAGE_DIR = "./app/storage_local"
-FILES_DIR = "./app/files"
-NODE_CHUNK_SIZE = 2096
-NODE_CHUNK_OVERLAP = 800
-EMBED_MODEL = OllamaEmbedding(model_name="nomic-embed-text:v1.5") # Default embedding model
-LLM_MODEL = Ollama(model="mistral:7b", temperature=0.2, seed=334, request_timeout=90.0) # Default LLM model
-# EMBED_MODEL = OpenAIEmbedding(model="text-embedding-3-small") # Default embedding model
-# LLM_MODEL = OpenAI(model="gpt-4o-mini", temperature=0.2, seed=334, request_timeout=90.0) # Default LLM model
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-def llm_settings():
-    """Function to set up LLM settings."""
-    Settings.embed_model = EMBED_MODEL
-    Settings.llm = LLM_MODEL
 
-    # Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-large")
-    # Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0.2, seed=334, request_timeout=90.0)
-    # Uncomment the line below to use a different model
-    # Settings.llm = Ollama(model="deepseek-r1:7b", request_timeout=90.0)
+def load_pdfs(file_path: str, model: str = "gemma3:4b"):
+    loader = GenericLoader(
+        blob_loader=FileSystemBlobLoader(
+            path=file_path,
+            glob="**/*.pdf",
+            show_progress=True,
+        ),
+        blob_parser=PyMuPDFParser(
+            mode="page",
+            images_inner_format="markdown-img",
+            images_parser=LLMImageBlobParser(model=ChatOllama(model=model, max_tokens=2048, temperature=0.0)),
+            extract_tables="markdown",
+        ),
+    )
+    docs = loader.load()
 
-def load_documents_with_metadata(directory_path):
-    print(f"Loading documents from directory: {directory_path}")
-    reader = SimpleDirectoryReader(directory_path, recursive=True)
-    loaded_docs = reader.load_data()
-    
-    docs_with_metadata = []
-    for doc in loaded_docs:
-        file_name = os.path.basename(doc.metadata.get('file_path', ''))
+    assert len(docs) > 0, "No documents loaded. Check the file path and glob pattern."
+    print(f"Total number of documents: {len(docs)}")
+
+    return docs
+
+def split_docs(docs: list[Document]):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,  # chunk size (characters)
+        chunk_overlap=200,  # chunk overlap (characters)
+        add_start_index=True,  # track index in original document
+    )
+    all_splits = text_splitter.split_documents(docs)
+    print(f"Split blog post into {len(all_splits)} sub-documents.")
+
+    return all_splits
+
+def add_metadata_to_documents(docs: list[Document]):
+    for doc in docs:
+        file_name = doc.metadata.get('source')
 
         # Extract aircraft model from filename (e.g., "poh_162_1.pdf" -> "162")
-        aircraft_model = None
-        document_type = None
         if "poh_" in file_name:
-            aircraft_model = "Cessna 162"
-            document_type = "Pilot Operating Handbook"
+            doc.metadata["aircraft_model"] = "Cessna 162"
+            doc.metadata["document_type"] = "Pilot Operating Handbook"
         elif "phak" in file_name:
-            document_type = "Pilot Handbook of Aeronautical Knowledge"
+            doc.metadata["document_type"] = "Pilot Handbook of Aeronautical Knowledge"
         elif "acs" in file_name:
-            document_type = "Airman Certification Standards"
+            doc.metadata["document_type"] = "Airman Certification Standards"
         elif "afh" in file_name:
-            document_type = "Airplane Flying Handbook"
+            doc.metadata["document_type"] = "Airplane Flying Handbook"
 
-        # Add metadata to the document
-        new_metadata = doc.metadata.copy()
-        if aircraft_model:
-            new_metadata['aircraft_model'] = aircraft_model
+    print("Sample metadata:", docs[0].metadata)
+    return docs
 
-        new_metadata['document_type'] = document_type
-        
-        docs_with_metadata.append(Document(text=doc.text, metadata=new_metadata))
-
-    print(f"Loaded {len(docs_with_metadata)} documents with metadata.")
-    assert len(docs_with_metadata) > 0, "No documents loaded with metadata."
-
-    print("Sample metadata:", docs_with_metadata[0].metadata)
-    return docs_with_metadata
-
-def main():
-    """Main function to run the script."""
-    llm_settings()
-
-    chroma_client = chromadb.PersistentClient(VECTOR_INDEX_STORAGE_DIR)
-    collection_name = "faa_documents"
-
-    try:
-        chroma_client.get_collection(collection_name)
-    except chromadb.errors.NotFoundError:
-        pass
-    else:
-        chroma_client.delete_collection(collection_name)  # Clear existing collection
-
-    chroma_collection = chroma_client.create_collection(collection_name, embedding_function=OllamaEmbeddingFunction(url="http://localhost:11434/api/embeddings", model_name="nomic-embed-text:v1.5"))
-
-    documents = load_documents_with_metadata(FILES_DIR)
-    node_parser = SentenceSplitter(chunk_size=NODE_CHUNK_SIZE, chunk_overlap=NODE_CHUNK_OVERLAP)
-    nodes = node_parser.get_nodes_from_documents(documents, show_progress=True)
-    chroma_collection.upsert(
-        documents=[doc.text for doc in nodes],
-        metadatas=[doc.metadata for doc in nodes],
-        ids=[str(i) for i in range(len(nodes))],
+def setup_vector_store(all_splits: list[Document]):
+    vector_store = Chroma(
+        collection_name="faa_documents",
+        embedding_function=OllamaEmbeddings(model="nomic-embed-text:v1.5"),
+        persist_directory="./chroma_langchain_db",
     )
-    print("\nVectorStoreIndex created for all documents.")
-    print(f"\nVerifying data directly in ChromaDB collection '{collection_name}'...")
-    print(f"Number of items in ChromaDB collection: {chroma_collection.count()}")
+    vector_store.reset_collection()
+    document_ids = vector_store.add_documents(documents=all_splits)
+    
+    assert len(document_ids) > 0, "No documents were added to the vector store. Check the embeddings model and documents."
+    return vector_store
 
 
 if __name__ == "__main__":
-    main()
+    docs = load_pdfs("./app/files/afh")
+    docs_with_metadata = add_metadata_to_documents(docs)
+    all_splits = split_docs(docs_with_metadata)
+    setup_vector_store(all_splits)
