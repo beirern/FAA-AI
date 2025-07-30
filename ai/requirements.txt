@@ -5,3 +5,4 @@ langchain-chroma
 langchain-ollama
 pymupdf
 python-dotenv
+fastapi[standard]

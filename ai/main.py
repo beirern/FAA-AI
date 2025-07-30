@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
 
-from ai.app.query import full_query
+from ai.app.query import query as llm_query
 
 class Query(BaseModel):
     query: str
@@ -17,8 +17,8 @@ async def root():
 @app.post("/submit")
 async def submit(query: Query):
 
-    response = full_query(query.query)
+    response: str = llm_query(query.query)
 
-    return { "message": response.response }
+    return { "message": response }
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

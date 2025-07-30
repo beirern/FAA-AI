@@ -77,7 +77,7 @@ def setup_vector_store(all_splits: list[Document]):
 
 
 if __name__ == "__main__":
-    docs = load_pdfs("./app/files/afh")
+    docs = load_pdfs("./app/files/")
     docs_with_metadata = add_metadata_to_documents(docs)
     all_splits = split_docs(docs_with_metadata)
     setup_vector_store(all_splits)
