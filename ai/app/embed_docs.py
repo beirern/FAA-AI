@@ -1,8 +1,5 @@
 from langchain_chroma import Chroma
 
-from langchain_ollama import ChatOllama
-from langchain_ollama import OllamaEmbeddings
-
 from langchain_core.documents import Document
 
 from langchain_community.document_loaders import FileSystemBlobLoader
@@ -11,6 +8,8 @@ from langchain_community.document_loaders.parsers import PyMuPDFParser
 from langchain_community.document_loaders.parsers import LLMImageBlobParser
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+from common import EMBEDDING_MODEL, PDF_LOADER_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
 
 
 def load_pdfs(file_path: str, model: str = "gemma3:4b"):
@@ -23,7 +22,7 @@ def load_pdfs(file_path: str, model: str = "gemma3:4b"):
         blob_parser=PyMuPDFParser(
             mode="page",
             images_inner_format="markdown-img",
-            images_parser=LLMImageBlobParser(model=ChatOllama(model=model, max_tokens=2048, temperature=0.0)),
+            images_parser=LLMImageBlobParser(model=PDF_LOADER_MODEL),
             extract_tables="markdown",
         ),
     )
@@ -65,9 +64,9 @@ def add_metadata_to_documents(docs: list[Document]):
 
 def setup_vector_store(all_splits: list[Document]):
     vector_store = Chroma(
-        collection_name="faa_documents",
-        embedding_function=OllamaEmbeddings(model="nomic-embed-text:v1.5"),
-        persist_directory="./chroma_langchain_db",
+        collection_name=COLLECTION_NAME,
+        embedding_function=EMBEDDING_MODEL,
+        persist_directory=CHROMA_DIRECTORY,
     )
     vector_store.reset_collection()
     document_ids = vector_store.add_documents(documents=all_splits)

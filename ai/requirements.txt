@@ -3,6 +3,7 @@ langchain-community
 langgraph
 langchain-chroma
 langchain-ollama
+langchain_google_genai
 pymupdf
 python-dotenv
 fastapi[standard]

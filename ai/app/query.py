@@ -2,9 +2,6 @@ from langchain_chroma import Chroma
 
 from langchain import hub
 
-from langchain_ollama import ChatOllama
-from langchain_ollama import OllamaEmbeddings
-
 from langchain_core.documents import Document
 from typing_extensions import List, TypedDict, Annotated
 
@@ -17,6 +14,9 @@ from dotenv import load_dotenv
 from functools import cache
 
 load_dotenv()  # take environment variables
+
+from ai.app.common import CHAT_MODEL, EMBEDDING_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
+
 
 # Define schema for search
 class Search(TypedDict):
@@ -38,13 +38,13 @@ class State(TypedDict):
 @cache
 def load_vector_store():
     return Chroma(
-        collection_name="faa_documents",
-        embedding_function=OllamaEmbeddings(model="nomic-embed-text:v1.5"),
-        persist_directory="./chroma_langchain_db",
+        collection_name=COLLECTION_NAME,
+        embedding_function=EMBEDDING_MODEL,
+        persist_directory=CHROMA_DIRECTORY,
     )
 
 def analyze_query(state: State):
-    structured_llm = ChatOllama(model="gemma3:4b", max_tokens=2048, temperature=0.0).with_structured_output(Search)
+    structured_llm = CHAT_MODEL.with_structured_output(Search)
     query = structured_llm.invoke(state["question"])
     return {"query": query}
 
@@ -62,7 +62,7 @@ def generate(state: State):
     prompt = hub.pull("rlm/rag-prompt")
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
     messages = prompt.invoke({"question": state["question"], "context": docs_content})
-    response = ChatOllama(model="gemma3:4b", max_tokens=2048, temperature=0.0).invoke(messages)
+    response = CHAT_MODEL.invoke(messages)
     return {"answer": response.content}
 
 def query(question: str) -> str:
