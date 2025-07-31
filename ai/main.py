@@ -7,6 +7,7 @@ from ai.app.query import query as llm_query
 
 class Query(BaseModel):
     query: str
+    selectedFile: str
 
 app = FastAPI()
 
@@ -16,8 +17,7 @@ async def root():
 
 @app.post("/submit")
 async def submit(query: Query):
-
-    response: str = llm_query(query.query)
+    response: str = llm_query(query.query, query.selectedFile)
 
     return { "message": response }
 

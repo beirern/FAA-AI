@@ -2,6 +2,8 @@ from langchain_chroma import Chroma
 
 from langchain import hub
 
+from dataclasses import dataclass
+
 from langchain_core.documents import Document
 from typing_extensions import List, TypedDict, Annotated
 
@@ -23,17 +25,22 @@ class Search(TypedDict):
     """Search query."""
 
     query: Annotated[str, ..., "Search query to run."]
-    document_type: Annotated[
-        Literal["Pilot Operating Handbook", "Pilot Handbook of Aeronautical Knowledge", "Airman Certification Standards", "Airplane Flying Handbook"],
-        ...,
-        "Document to query.",
-    ]
+    # document_type: Annotated[
+    #     Literal["Pilot Operating Handbook", "Pilot Handbook of Aeronautical Knowledge", "Airman Certification Standards", "Airplane Flying Handbook"],
+    #     ...,
+    #     "Document to query.",
+    # ]
 
 class State(TypedDict):
     question: str
     query: Search
+    document_name: str
     context: List[Document]
     answer: str
+
+@dataclass
+class ContextSchema:
+    document_name: str
 
 @cache
 def load_vector_store():
@@ -53,7 +60,7 @@ def retrieve(state: State):
     retrieved_docs = load_vector_store().similarity_search(
         query["query"],
         filter={
-            "document_type": query["document_type"],
+            "document_type": state["document_name"],
         },
     )
     return {"context": retrieved_docs}
@@ -65,12 +72,12 @@ def generate(state: State):
     response = CHAT_MODEL.invoke(messages)
     return {"answer": response.content}
 
-def query(question: str) -> str:
-    graph_builder = StateGraph(State).add_sequence([analyze_query, retrieve, generate])
+def query(question: str, document_name: str) -> str:
+    graph_builder = StateGraph(State, context_schema=ContextSchema).add_sequence([analyze_query, retrieve, generate])
     graph_builder.add_edge(START, "analyze_query")
     graph = graph_builder.compile()
 
-    result = graph.invoke({"question": question})
+    result = graph.invoke({"question": question, "document_name": document_name})
 
     return result['answer']
 
@@ -81,8 +88,8 @@ if __name__ == "__main__":
 
     question = "What should I do prior to takeoff?"
 
-    graph_builder = StateGraph(State).add_sequence([analyze_query, retrieve, generate])
-    graph_builder.add_edge(START, "analyze_query")
+    graph_builder = StateGraph(State).add_sequence([retrieve, generate])
+    graph_builder.add_edge(START, "retrieve")
     graph = graph_builder.compile()
 
     result = graph.invoke({"question": question})

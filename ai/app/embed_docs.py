@@ -63,6 +63,7 @@ def add_metadata_to_documents(docs: list[Document]):
     return docs
 
 def setup_vector_store(all_splits: list[Document]):
+    print(f"Storing embeddings in collection '{COLLECTION_NAME}' at '{CHROMA_DIRECTORY}'")
     vector_store = Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=EMBEDDING_MODEL,

@@ -1,12 +1,13 @@
 document.getElementById('textForm').addEventListener('submit', async function (e) {
   e.preventDefault();
   const input = document.getElementById('userInput').value;
+  const selectedFile = document.getElementById('fileSelect').value;
 
   try {
     const response = await fetch('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: input })
+      body: JSON.stringify({ query: input, selectedFile: selectedFile })
     });
 
     const result = await response.json();

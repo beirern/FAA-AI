@@ -8,8 +8,15 @@
 </head>
 
 <body>
-  <h1>Submit Text</h1>
+  <h1>FAA Document Query</h1>
   <form id="textForm">
+    <label for="fileSelect">Choose a document:</label>
+    <select id="fileSelect" name="fileSelect">
+      <option value="Pilot Operating Handbook">Pilot Operating Handbook</option>
+      <option value="Airman Certification Standards">Airman Certification Standards</option>
+      <option value="Pilot Handbook of Aeronautical Knowledge">Pilot Handbook of Aeronautical Knowledge</option>
+      <option value="Airplane Flying Handbook">Airplane Flying Handbook</option>
+    </select>
     <input type="text" id="userInput" placeholder="Enter text" required />
     <button type="submit">Send</button>
   </form>
