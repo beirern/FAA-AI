@@ -15,7 +15,7 @@ from functools import cache
 
 load_dotenv()  # take environment variables
 
-from ai.app.common import CHAT_MODEL, EMBEDDING_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
+from .common import CHAT_MODEL, EMBEDDING_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
 
 
 # Define schema for search
@@ -75,6 +75,8 @@ def query(question: str) -> str:
     return result['answer']
 
 if __name__ == "__main__":
+    # To run this script, use `python -m ai.app.query` from the project root directory.
+    # This ensures that relative imports work correctly.
     vector_store = load_vector_store()
 
     question = "What should I do prior to takeoff?"

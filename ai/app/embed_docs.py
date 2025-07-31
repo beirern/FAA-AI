@@ -9,7 +9,7 @@ from langchain_community.document_loaders.parsers import LLMImageBlobParser
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from common import EMBEDDING_MODEL, PDF_LOADER_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
+from .common import EMBEDDING_MODEL, PDF_LOADER_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
 
 
 def load_pdfs(file_path: str, model: str = "gemma3:4b"):
