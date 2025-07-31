@@ -88,11 +88,11 @@ if __name__ == "__main__":
 
     question = "What should I do prior to takeoff?"
 
-    graph_builder = StateGraph(State).add_sequence([retrieve, generate])
-    graph_builder.add_edge(START, "retrieve")
+    graph_builder = StateGraph(State).add_sequence([analyze_query, retrieve, generate])
+    graph_builder.add_edge(START, "analyze_query")
     graph = graph_builder.compile()
 
-    result = graph.invoke({"question": question})
+    result = graph.invoke({"question": question, "document_name": "Pilot Handbook of Aeronautical Knowledge"})
 
     print(f"Context: {result['context']}\n\n")
     print(f"Answer: {result['answer']}")

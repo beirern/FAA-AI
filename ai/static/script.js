@@ -2,6 +2,13 @@ document.getElementById('textForm').addEventListener('submit', async function (e
   e.preventDefault();
   const input = document.getElementById('userInput').value;
   const selectedFile = document.getElementById('fileSelect').value;
+  const responseDiv = document.getElementById('response');
+  const loaderDiv = document.getElementById('loader');
+
+  // Hide response and show loader
+  responseDiv.classList.remove('visible');
+  responseDiv.textContent = ''; // Clear previous response
+  loaderDiv.style.display = 'block';
 
   try {
     const response = await fetch('/submit', {
@@ -12,9 +19,13 @@ document.getElementById('textForm').addEventListener('submit', async function (e
 
     const result = await response.json();
     console.log(result);
-    document.getElementById('response').textContent = `Server says: ${result.message}`;
+    responseDiv.textContent = result.message || 'No response from server.';
+    responseDiv.classList.add('visible'); // Show response
   } catch (err) {
     console.error(err);
-    document.getElementById('response').textContent = 'Error contacting server.';
+    responseDiv.textContent = 'Error contacting server.';
+    responseDiv.classList.add('visible'); // Show response even on error
+  } finally {
+    loaderDiv.style.display = 'none'; // Hide loader
   }
 });

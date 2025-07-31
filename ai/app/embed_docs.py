@@ -9,6 +9,10 @@ from langchain_community.document_loaders.parsers import LLMImageBlobParser
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from dotenv import load_dotenv
+
+load_dotenv()  # take environment variables
+
 from .common import EMBEDDING_MODEL, PDF_LOADER_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
 
 
