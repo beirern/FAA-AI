@@ -1,10 +1,10 @@
 import os
-from pypdf import PdfReader
-from pathlib import Path
 import warnings
 from collections import defaultdict
+from pathlib import Path
 
 import matplotlib.pyplot as plt
+from pypdf import PdfReader
 
 warnings.filterwarnings("ignore", category=UserWarning)
 

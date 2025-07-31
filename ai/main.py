@@ -1,24 +1,28 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-
 from pydantic import BaseModel
 
 from ai.app.query import query as llm_query
+
 
 class Query(BaseModel):
     query: str
     selectedFile: str
 
+
 app = FastAPI()
+
 
 @app.get("/test")
 async def root():
     return {"message": "Hello World"}
 
+
 @app.post("/submit")
 async def submit(query: Query):
     response: str = llm_query(query.query, query.selectedFile)
 
-    return { "message": response }
+    return {"message": response}
+
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

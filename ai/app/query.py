@@ -1,23 +1,13 @@
-from langchain_chroma import Chroma
-
-from langchain import hub
-
 from dataclasses import dataclass
-
-from langchain_core.documents import Document
-from typing_extensions import List, TypedDict, Annotated
-
-from langgraph.graph import START, StateGraph
-
-from typing import Literal
-
-from dotenv import load_dotenv
-
 from functools import cache
 
-load_dotenv()  # take environment variables
+from langchain import hub
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
+from langgraph.graph import START, StateGraph
+from typing_extensions import Annotated, List, TypedDict
 
-from .common import CHAT_MODEL, EMBEDDING_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
+from .common import CHAT_MODEL, CHROMA_DIRECTORY, COLLECTION_NAME, EMBEDDING_MODEL
 
 
 # Define schema for search
@@ -31,6 +21,7 @@ class Search(TypedDict):
     #     "Document to query.",
     # ]
 
+
 class State(TypedDict):
     question: str
     query: Search
@@ -38,9 +29,11 @@ class State(TypedDict):
     context: List[Document]
     answer: str
 
+
 @dataclass
 class ContextSchema:
     document_name: str
+
 
 @cache
 def load_vector_store():
@@ -50,10 +43,12 @@ def load_vector_store():
         persist_directory=CHROMA_DIRECTORY,
     )
 
+
 def analyze_query(state: State):
     structured_llm = CHAT_MODEL.with_structured_output(Search)
     query = structured_llm.invoke(state["question"])
     return {"query": query}
+
 
 def retrieve(state: State):
     query = state["query"]
@@ -65,6 +60,7 @@ def retrieve(state: State):
     )
     return {"context": retrieved_docs}
 
+
 def generate(state: State):
     prompt = hub.pull("rlm/rag-prompt")
     docs_content = "\n\n".join(doc.page_content for doc in state["context"])
@@ -72,14 +68,18 @@ def generate(state: State):
     response = CHAT_MODEL.invoke(messages)
     return {"answer": response.content}
 
+
 def query(question: str, document_name: str) -> str:
-    graph_builder = StateGraph(State, context_schema=ContextSchema).add_sequence([analyze_query, retrieve, generate])
+    graph_builder = StateGraph(State, context_schema=ContextSchema).add_sequence(
+        [analyze_query, retrieve, generate]
+    )
     graph_builder.add_edge(START, "analyze_query")
     graph = graph_builder.compile()
 
     result = graph.invoke({"question": question, "document_name": document_name})
 
-    return result['answer']
+    return result["answer"]
+
 
 if __name__ == "__main__":
     # To run this script, use `python -m ai.app.query` from the project root directory.
@@ -92,7 +92,12 @@ if __name__ == "__main__":
     graph_builder.add_edge(START, "analyze_query")
     graph = graph_builder.compile()
 
-    result = graph.invoke({"question": question, "document_name": "Pilot Handbook of Aeronautical Knowledge"})
+    result = graph.invoke(
+        {
+            "question": question,
+            "document_name": "Pilot Handbook of Aeronautical Knowledge",
+        }
+    )
 
     print(f"Context: {result['context']}\n\n")
     print(f"Answer: {result['answer']}")

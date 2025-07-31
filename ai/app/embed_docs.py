@@ -1,19 +1,14 @@
 from langchain_chroma import Chroma
-
-from langchain_core.documents import Document
-
 from langchain_community.document_loaders import FileSystemBlobLoader
 from langchain_community.document_loaders.generic import GenericLoader
-from langchain_community.document_loaders.parsers import PyMuPDFParser
-from langchain_community.document_loaders.parsers import LLMImageBlobParser
-
+from langchain_community.document_loaders.parsers import (
+    LLMImageBlobParser,
+    PyMuPDFParser,
+)
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from dotenv import load_dotenv
-
-load_dotenv()  # take environment variables
-
-from .common import EMBEDDING_MODEL, PDF_LOADER_MODEL, COLLECTION_NAME, CHROMA_DIRECTORY
+from .common import CHROMA_DIRECTORY, COLLECTION_NAME, EMBEDDING_MODEL, PDF_LOADER_MODEL
 
 
 def load_pdfs(file_path: str, model: str = "gemma3:4b"):
@@ -37,6 +32,7 @@ def load_pdfs(file_path: str, model: str = "gemma3:4b"):
 
     return docs
 
+
 def split_docs(docs: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,  # chunk size (characters)
@@ -48,9 +44,10 @@ def split_docs(docs: list[Document]):
 
     return all_splits
 
+
 def add_metadata_to_documents(docs: list[Document]):
     for doc in docs:
-        file_name = doc.metadata.get('source')
+        file_name = doc.metadata.get("source")
 
         # Extract aircraft model from filename (e.g., "poh_162_1.pdf" -> "162")
         if "poh_" in file_name:
@@ -66,8 +63,11 @@ def add_metadata_to_documents(docs: list[Document]):
     print("Sample metadata:", docs[0].metadata)
     return docs
 
+
 def setup_vector_store(all_splits: list[Document]):
-    print(f"Storing embeddings in collection '{COLLECTION_NAME}' at '{CHROMA_DIRECTORY}'")
+    print(
+        f"Storing embeddings in collection '{COLLECTION_NAME}' at '{CHROMA_DIRECTORY}'"
+    )
     vector_store = Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=EMBEDDING_MODEL,
@@ -75,8 +75,10 @@ def setup_vector_store(all_splits: list[Document]):
     )
     vector_store.reset_collection()
     document_ids = vector_store.add_documents(documents=all_splits)
-    
-    assert len(document_ids) > 0, "No documents were added to the vector store. Check the embeddings model and documents."
+
+    assert (
+        len(document_ids) > 0
+    ), "No documents were added to the vector store. Check the embeddings model and documents."
     return vector_store
 
 

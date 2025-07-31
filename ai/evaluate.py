@@ -1,7 +1,5 @@
 from app.query import full_query
 
-
-
 print("\n--- Querying Examples ---")
 
 queries = [
