@@ -18,14 +18,6 @@ document.getElementById('textForm').addEventListener('submit', async function (e
     });
 
     const result = await response.json();
-
-    try {
-      result = response.json();
-    } catch (err) {
-      console.error('Error parsing JSON:', err);
-      document.getElementById('response').textContent = 'Error parsing server response.';
-      return;
-    }
     console.log(result);
     responseDiv.textContent = result.message || 'No response from server.';
     responseDiv.classList.add('visible'); // Show response
