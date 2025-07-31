@@ -14,6 +14,8 @@ EMBEDDING_MODEL = ""
 COLLECTION_NAME = "faa-documents"
 PDF_LOADER_MODEL = ""
 CHROMA_DIRECTORY = ""
+CHROMA_HOST = "chromadb"  # Container network
+CHROMA_PORT = 5005  # In Config file and compose
 
 if environment == "production":
     CHAT_MODEL = ChatGoogleGenerativeAI(
@@ -33,7 +35,19 @@ if environment == "production":
     )
     CHROMA_DIRECTORY = "/tmp/chroma_langchain_db"
 else:
-    CHAT_MODEL = ChatOllama(model="gemma3:4b", max_tokens=2048, temperature=0.0)
-    EMBEDDING_MODEL = OllamaEmbeddings(model="nomic-embed-text:v1.5")
-    PDF_LOADER_MODEL = ChatOllama(model="gemma3:4b", max_tokens=2048, temperature=0.0)
+    CHAT_MODEL = ChatOllama(
+        model="gemma3:4b",
+        max_tokens=2048,
+        temperature=0.0,
+        base_url="http://host.docker.internal:11434",
+    )
+    EMBEDDING_MODEL = OllamaEmbeddings(
+        model="nomic-embed-text:v1.5", base_url="http://host.docker.internal:11434"
+    )
+    PDF_LOADER_MODEL = ChatOllama(
+        model="gemma3:4b",
+        max_tokens=2048,
+        temperature=0.0,
+        base_url="http://host.docker.internal:11434",
+    )
     CHROMA_DIRECTORY = "./chroma_langchain_db"

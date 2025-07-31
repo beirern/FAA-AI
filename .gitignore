@@ -8,3 +8,4 @@ storage/
 .vscode/
 .env
 chroma_langchain_db/
+.DS_Store

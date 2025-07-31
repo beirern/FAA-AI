@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ai.app.query import query as llm_query
+from app.query import query as llm_query
 
 
 class Query(BaseModel):
