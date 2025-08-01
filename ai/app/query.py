@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from functools import cache
 
@@ -44,12 +45,22 @@ class ContextSchema:
 
 @cache
 def load_vector_store():
-    return Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=EMBEDDING_MODEL,
-        host=CHROMA_HOST,
-        port=CHROMA_PORT,
-    )
+    if (
+        os.environ.get("ENVIRONMENT") == "production"
+        or os.environ.get("ENVIRONMENT") == "development"
+    ):
+        return Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+        )
+    else:
+        return Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            persist_directory=CHROMA_DIRECTORY,
+        )
 
 
 def analyze_query(state: State):

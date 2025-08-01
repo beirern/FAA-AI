@@ -1,3 +1,5 @@
+import os
+
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import FileSystemBlobLoader
 from langchain_community.document_loaders.generic import GenericLoader
@@ -75,12 +77,24 @@ def setup_vector_store(all_splits: list[Document]):
     print(
         f"Storing embeddings in collection '{COLLECTION_NAME}' at '{CHROMA_DIRECTORY}'"
     )
-    vector_store = Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=EMBEDDING_MODEL,
-        host=CHROMA_HOST,
-        port=CHROMA_PORT,
-    )
+
+    vector_store = None
+    if (
+        os.environ.get("ENVIRONMENT") == "production"
+        or os.environ.get("ENVIRONMENT") == "development"
+    ):
+        vector_store = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+        )
+    else:
+        vector_store = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            persist_directory=CHROMA_DIRECTORY,
+        )
     vector_store.reset_collection()
     document_ids = vector_store.add_documents(documents=all_splits)
 
