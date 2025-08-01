@@ -1,13 +1,15 @@
-FROM public.ecr.aws/lambda/python:3.13
+FROM python:3.13-slim-bookworm
 
-WORKDIR /code
+WORKDIR /ai
 
-ENV LAMBDA_TASK_ROOT=/code
+COPY ./requirements.txt /ai/requirements.txt
 
-COPY ./requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /ai/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY ./main.py /ai/main.py
 
-COPY ./app ${LAMBDA_TASK_ROOT}/app
+COPY ./static /ai/static
 
-CMD ["app.script.lambda_handler"]
+RUN touch /ai/__init__.py
+
+COPY ./app /ai/app

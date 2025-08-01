@@ -1,8 +1,16 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ai.app.query import query as llm_query
+if (
+    os.environ.get("ENVIRONMENT") == "production"
+    or os.environ.get("ENVIRONMENT") == "development"
+):
+    from app.query import query as llm_query  # Docker containers like this
+else:
+    from ai.app.query import query as llm_query  # FastAPI likes this
 
 
 class Query(BaseModel):

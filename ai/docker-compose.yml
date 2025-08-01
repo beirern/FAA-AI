@@ -1,0 +1,29 @@
+networks:
+  net:
+    driver: bridge
+services:
+  app:
+    build: .
+    ports:
+      - 8000:8000
+      - 11434:11434
+    environment:
+      - ENVIRONMENT=${APP_ENV:-development}
+    env_file:
+      - .env
+    depends_on:
+      - chromadb
+    networks:
+      - net
+    # Adjust the command below if your app entrypoint is different
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  chromadb:
+    image: chromadb/chroma:1.0.15
+    volumes:
+      - ./chroma_langchain_db:/chroma
+      - ./chroma_config.yaml:/config.yaml
+    ports:
+      - 5005:5005
+    networks:
+      - net

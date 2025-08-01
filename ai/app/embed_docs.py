@@ -1,3 +1,5 @@
+import os
+
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import FileSystemBlobLoader
 from langchain_community.document_loaders.generic import GenericLoader
@@ -8,10 +10,17 @@ from langchain_community.document_loaders.parsers import (
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from .common import CHROMA_DIRECTORY, COLLECTION_NAME, EMBEDDING_MODEL, PDF_LOADER_MODEL
+from .common import (
+    CHROMA_DIRECTORY,
+    CHROMA_HOST,
+    CHROMA_PORT,
+    COLLECTION_NAME,
+    EMBEDDING_MODEL,
+    PDF_LOADER_MODEL,
+)
 
 
-def load_pdfs(file_path: str, model: str = "gemma3:4b"):
+def load_pdfs(file_path: str):
     loader = GenericLoader(
         blob_loader=FileSystemBlobLoader(
             path=file_path,
@@ -68,11 +77,24 @@ def setup_vector_store(all_splits: list[Document]):
     print(
         f"Storing embeddings in collection '{COLLECTION_NAME}' at '{CHROMA_DIRECTORY}'"
     )
-    vector_store = Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=EMBEDDING_MODEL,
-        persist_directory=CHROMA_DIRECTORY,
-    )
+
+    vector_store = None
+    if (
+        os.environ.get("ENVIRONMENT") == "production"
+        or os.environ.get("ENVIRONMENT") == "development"
+    ):
+        vector_store = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+        )
+    else:
+        vector_store = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            persist_directory=CHROMA_DIRECTORY,
+        )
     vector_store.reset_collection()
     document_ids = vector_store.add_documents(documents=all_splits)
 

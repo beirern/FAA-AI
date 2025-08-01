@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from functools import cache
 
@@ -7,7 +8,14 @@ from langchain_core.documents import Document
 from langgraph.graph import START, StateGraph
 from typing_extensions import Annotated, List, TypedDict
 
-from .common import CHAT_MODEL, CHROMA_DIRECTORY, COLLECTION_NAME, EMBEDDING_MODEL
+from .common import (
+    CHAT_MODEL,
+    CHROMA_DIRECTORY,
+    CHROMA_HOST,
+    CHROMA_PORT,
+    COLLECTION_NAME,
+    EMBEDDING_MODEL,
+)
 
 
 # Define schema for search
@@ -37,11 +45,22 @@ class ContextSchema:
 
 @cache
 def load_vector_store():
-    return Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=EMBEDDING_MODEL,
-        persist_directory=CHROMA_DIRECTORY,
-    )
+    if (
+        os.environ.get("ENVIRONMENT") == "production"
+        or os.environ.get("ENVIRONMENT") == "development"
+    ):
+        return Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+        )
+    else:
+        return Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=EMBEDDING_MODEL,
+            persist_directory=CHROMA_DIRECTORY,
+        )
 
 
 def analyze_query(state: State):
